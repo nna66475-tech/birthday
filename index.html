@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>誕生日早見表 Pro V3</title>
+    <!-- スクショ機能のためのライブラリ（html2canvas） -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #E9E3EB;     /* ベースカラー */
+            --accent-color: #D99AAD; /* アクセントカラー */
+            --text-color: #2D2E1B;   /* テキストカラー */
+            --card-bg: #ffffff;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Sans-Serif; }
+        body { background-color: var(--bg-color); color: var(--text-color); padding: 16px; display: flex; flex-direction: column; align-items: center; }
+        
+        .app-container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 20px; }
+        .card { background: var(--card-bg); border-radius: 20px; padding: 20px; box-shadow: 0 8px 24px rgba(45,46,27,0.06); }
+        h2 { font-size: 1.2rem; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; color: var(--text-color); }
+
+        /* キャラクター入力カード */
+        .char-input-block {
+            background: #faf8fa;
+            border: 1px solid #E2D9E2;
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 12px;
+            position: relative;
+        }
+        .char-input-block .remove-btn {
+            position: absolute; top: 14px; right: 14px; width: 24px; height: 24px;
+            background: none; border: none; color: #a6a2a7; font-size: 1.4rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; z-index: 5;
+        }
+
+        input, select, button, textarea { padding: 12px; border-radius: 10px; border: 1px solid #E2D9E2; font-size: 1rem; color: var(--text-color); background: #fdfbfd; width: 100%; }
+        .char-input-block .input-name { padding-right: 38px; margin-bottom: 10px; }
+        .row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .row input, .row select { flex: 1; margin-bottom: 0; }
+
+        /* 詳細設定の折りたたみ */
+        .details-toggle { font-size: 0.85rem; color: var(--accent-color); cursor: pointer; text-align: center; margin: 4px 0; font-weight: bold; }
+        .advanced-inputs { display: none; flex-direction: column; gap: 10px; background: #ffffff; padding: 12px; border-radius: 10px; border: 1px solid #E2D9E2; margin-top: 8px; }
+        .advanced-inputs.open { display: flex; }
+
+        button.primary { background: var(--accent-color); color: white; border: none; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(217,154,173,0.3); margin-top: 10px; }
+        button.secondary { background: #ffffff; color: var(--accent-color); border: 2px solid var(--accent-color); font-weight: bold; cursor: pointer; }
+        button.danger { background: #e53935; color: white; border: none; font-weight: bold; cursor: pointer; }
+
+        /* タグ表示 */
+        .tags-container { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tag-chip { background: #eee9f0; padding: 6px 14px; border-radius: 16px; font-size: 0.85rem; cursor: pointer; }
+        .tag-chip.active { background: var(--accent-color); color: white; font-weight: bold; }
+
+        /* --- タブ切り替え構造 --- */
+        .tab-buttons { display: flex; gap: 6px; margin-bottom: 16px; background: #eee9f0; padding: 4px; border-radius: 12px; }
+        .tab-btn { padding: 8px 12px; font-size: 0.85rem; border: none; background: transparent; cursor: pointer; border-radius: 8px; font-weight: bold; color: var(--text-color); opacity: 0.6; }
+        .tab-btn.active { background: white; opacity: 1; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* スクショエリア共通基盤 */
+        .view-capture-area { background: white; border-radius: 16px; padding: 12px; text-align: center; }
+
+        /* 【再修正】外側のコンテナの横幅を確保しつつ中央寄せ */
+        .circle-container { 
+            width: 100%; position: relative; display: inline-block; 
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        
+        /* 【再修正】円形の本体を一回り小さく（幅80%）にして、周囲に絶対はみ出さないスペースを作成 */
+        .circle-timeline {
+            width: 80%; aspect-ratio: 1 / 1; border-radius: 50%;
+            margin: 40px auto; /* 上下に余白を作り、左右中央に配置 */
+            background: conic-gradient(
+                #B7E2F3 0deg 90deg,    /* 冬: 12, 1, 2月 */
+                #FFC6D3 90deg 180deg,  /* 春: 3, 4, 5月 */
+                #B6E9B6 180deg 270deg, /* 夏: 6, 7, 8月 */
+                #FFCD9B 270deg 360deg  /* 秋: 9, 10, 11月 */
+            );
+            position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+        }
+
+        .month-line {
+            position: absolute; top: 0; left: 50%; width: 1.5px; height: 100%;
+            background: rgba(255, 255, 255, 0.6); transform-origin: 50% 50%; pointer-events: none; z-index: 2;
+        }
+
+        /* 月テキストラベル */
+        .month-label {
+            position: absolute; font-size: 0.8rem; font-weight: bold; color: var(--text-color);
+            transform: translate(-50%, -50%); pointer-events: none; z-index: 3;
+            background: rgba(255,255,255,0.9); padding: 3px 6px; border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05); white-space: nowrap;
+        }
+
+        /* 四季の大きく薄い白文字ラベル */
+        .season-label {
+            position: absolute; font-size: 2.2rem; font-weight: 900;
+            color: rgba(255, 255, 255, 0.45); z-index: 1; pointer-events: none; letter-spacing: 2px;
+        }
+        /* 12月てっぺん基準の配置調整 */
+        .season-winter { top: 22%; right: 22%; }
+        .season-spring { bottom: 22%; right: 22%; }
+        .season-summer { bottom: 22%; left: 22%; }
+        .season-autumn { top: 22%; left: 22%; }
+
+        /* キャラクタープロット */
+        .char-click-zone {
+            position: absolute; width: 50px; height: 50px; transform: translate(-50%, -50%);
+            display: flex; align-items: center; justify-content: center; z-index: 10; cursor: pointer;
+        }
+        .char-dot {
+            width: 42px; height: 42px; border-radius: 50%;
+            background: #fff; border: 2.5px solid #fff; box-shadow: 0 4px 10px rgba(45,46,27,0.18);
+            display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: bold;
+            overflow: hidden; background-size: cover; background-position: center; pointer-events: none;
+            transition: transform 0.2s ease;
+        }
+        .char-click-zone:hover { z-index: 99; }
+        .char-click-zone:hover .char-dot { transform: scale(1.15); }
+
+        .char-tooltip {
+            position: absolute; bottom: 115%; background: rgba(45, 46, 27, 0.9); color: #fff;
+            padding: 5px 10px; border-radius: 8px; font-size: 0.75rem; white-space: nowrap;
+            opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s; pointer-events: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 100;
+        }
+        .char-click-zone:hover .char-tooltip { opacity: 1; visibility: visible; }
+
+        /* --- 統計グラフ用のスタイル --- */
+        .chart-row { display: flex; align-items: center; margin-bottom: 10px; font-size: 0.85rem; text-align: left; }
+        .chart-label { width: 50px; font-weight: bold; }
+        .chart-bar-wrapper { flex: 1; background: #f0ebf2; border-radius: 6px; height: 20px; overflow: hidden; margin: 0 10px; }
+        .chart-bar { height: 100%; width: 0%; transition: width 0.4s ease; border-radius: 6px; }
+        .chart-count { width: 30px; text-align: right; font-weight: bold; color: rgba(45,46,27,0.6); }
+
+        /* --- 一覧表用のスタイル --- */
+        .list-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; margin-top: 10px; }
+        .list-table th { padding: 8px; border-bottom: 2px solid #E2D9E2; color: rgba(45,46,27,0.6); }
+        .list-table td { padding: 10px 8px; border-bottom: 1px solid #eee9f0; }
+        .list-avatar { width: 28px; height: 28px; border-radius: 50%; background-size: cover; background-position: center; background-color: #e2d9e2; display: inline-block; vertical-align: middle; margin-right: 8px; }
+
+        /* ボタン関係 */
+        .btn-shot { background: var(--text-color); color: white; border: none; font-size: 0.85rem; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold; width: auto; }
+        .btn-clear { background: #e2d9e2; color: var(--text-color); border: none; font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; cursor: pointer; width: auto; }
+        .storage-area { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+        .btn-save-local { background: #2D2E1B; color: white; font-weight: bold; cursor: pointer; border: none; padding: 14px; }
+        
+        .save-status { font-size: 0.9rem; color: #2e7d32; font-weight: bold; display: flex; align-items: center; gap: 4px; opacity: 0; transform: translateY(-5px); transition: all 0.3s ease; height: 0; overflow: hidden; }
+        .save-status.show { opacity: 1; transform: translateY(0); height: auto; margin-top: 4px; }
+
+        /* 詳細画面（モーダル） */
+        .modal { position: fixed; inset: 0; background: rgba(45,46,27,0.4); display: none; justify-content: center; align-items: center; padding: 20px; z-index: 100; backdrop-filter: blur(4px); }
+        .modal-content { width: 100%; max-width: 400px; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 12px; position: relative; box-shadow: 0 12px 36px rgba(0,0,0,0.15); color: var(--text-color); max-height: 95vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(45,46,27,0.1); padding-bottom: 8px; }
+        .close-btn { font-size: 1.8rem; cursor: pointer; border: none; background: none; color: inherit; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+        
+        .image-uploader-wrapper { display: flex; justify-content: center; width: 100%; }
+        .image-uploader { width: 120px; height: 120px; border: 2px dashed rgba(45,46,27,0.2); border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; position: relative; overflow: hidden; background: rgba(255,255,255,0.5); font-size: 0.8rem; font-weight: bold; color: rgba(45,46,27,0.6); padding: 8px; }
+        .image-uploader img { width: 100%; height: 100%; object-fit: cover; }
+
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; }
+        .info-item { background: rgba(255,255,255,0.5); padding: 8px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.6); display: flex; flex-direction: column; }
+        .info-item span { display: block; font-size: 0.7rem; color: rgba(45,46,27,0.6); margin-bottom: 2px; }
+        .info-item input { padding: 6px; font-size: 0.8rem; border-radius: 6px; }
+        .modal-action-row { display: flex; gap: 10px; }
+        .modal-action-row button { flex: 1; padding: 10px; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- 入力エリア -->
+    <div class="card">
+        <h2>キャラ登録</h2>
+        <div class="form-group">
+            <div id="dynamic-form-container"></div>
+            <button class="secondary" onclick="addFormBlock()">➕ もう一人追加欄を増やす</button>
+            <button class="primary" onclick="submitAllCharacters()">まとめて早見表に追加登録</button>
+        </div>
+    </div>
+
+    <!-- タグフィルター -->
+    <div class="card">
+        <h2>絞り込み</h2>
+        <div class="tags-container" id="filter-tags">
+            <div class="tag-chip active" data-tag="all">すべて</div>
+        </div>
+    </div>
+
+    <!-- メイン表示＆タブ切り替えカード -->
+    <div class="card" style="padding: 20px 10px;">
+        <h2>
+            <span style="padding-left: 10px;">データ表示パネル</span>
+            <div style="display:flex; gap:8px; padding-right: 10px;">
+                <button class="btn-clear" onclick="clearAllData()">全消去</button>
+                <button class="btn-shot" onclick="captureCurrentTab()">今の画面をスクショ</button>
+            </div>
+        </h2>
+
+        <!-- タブボタン -->
+        <div class="tab-buttons" style="margin-left: 10px; margin-right: 10px;">
+            <button class="tab-btn active" onclick="switchTab('tab-circle')">⭕ 早見表</button>
+            <button class="tab-btn" onclick="switchTab('tab-graph')">📊 月別グラフ</button>
+            <button class="tab-btn" onclick="switchTab('tab-list')">📋 一覧表</button>
+        </div>
+
+        <!-- タブ1: 円形タイムライン -->
+        <div id="tab-circle" class="tab-content active">
+            <div class="view-capture-area" id="capture-circle">
+                <div class="circle-container" id="circle-layout-container">
+                    <div class="circle-timeline" id="timeline">
+                        <div class="season-label season-winter">冬</div>
+                        <div class="season-label season-spring">春</div>
+                        <div class="season-label season-summer">夏</div>
+                        <div class="season-label season-autumn">秋</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- タブ2: 統計グラフ -->
+        <div id="tab-graph" class="tab-content">
+            <div class="view-capture-area" id="capture-graph" style="padding: 20px 10px;">
+                <h3 style="font-size:1rem; margin-bottom:16px; text-align:left;">🎂 月別の誕生人数グラフ</h3>
+                <div id="graph-container"></div>
+            </div>
+        </div>
+
+        <!-- タブ3: 文字一覧表 -->
+        <div id="tab-list" class="tab-content">
+            <div class="view-capture-area" id="capture-list" style="padding: 16px 10px;">
+                <h3 style="font-size:1rem; margin-bottom:12px; text-align:left;">📋 登録メンバーリスト</h3>
+                <table class="list-table">
+                    <thead>
+                        <tr>
+                            <th>名前</th>
+                            <th>誕生日</th>
+                            <th>タグ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="list-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ローカル保存データ管理項目 -->
+    <div class="card">
+        <h2>データ管理</h2>
+        <div class="storage-area">
+            <button class="btn-save-local" onclick="triggerManualSave()">データをブラウザに保存する</button>
+            <div id="save-status-msg" class="save-status">✅保存しました！</div>
+        </div>
+    </div>
+</div>
+
+<!-- 詳細画面モーダル -->
+<div class="modal" id="detail-modal">
+    <div class="modal-content" id="detail-area">
+        <div class="modal-header">
+            <div class="modal-title">キャラクター詳細・編集</div>
+            <button class="close-btn" onclick="closeModal()">×</button>
+        </div>
+        
+        <div class="row" style="margin-bottom: 0; gap: 8px;">
+            <input type="text" id="modal-edit-name" placeholder="名前" style="flex: 2;">
+            <select id="modal-edit-month" style="flex: 1;" onchange="updateModalDayOptions()"></select>
+            <select id="modal-edit-day" style="flex: 1;"></select>
+        </div>
+        <input type="text" id="modal-edit-tag" placeholder="タグ" style="margin-bottom: 0;">
+        
+        <div class="image-uploader-wrapper">
+            <div class="image-uploader" onclick="triggerImageUpload()">
+                <span id="upload-placeholder">画像を追加<br>(正方形)</span>
+                <img id="char-image" src="" style="display:none;">
+                <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handleImage(event)">
+            </div>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-item"><span>誕生石</span><input type="text" id="modal-edit-stone"></div>
+            <div class="info-item"><span>誕生色</span><input type="text" id="modal-edit-color-name"></div>
+            <div class="info-item"><span>背景色指定</span><input type="color" id="modal-edit-color-hex" style="padding:0; height:34px; cursor:pointer;"></div>
+            <div class="info-item"><span>誕生花</span><input type="text" id="modal-edit-flower"></div>
+            <div class="info-item" style="grid-column: span 2;"><span>何の日？</span><input type="text" id="modal-edit-dayinfo"></div>
+        </div>
+        
+        <div class="modal-action-row">
+            <button class="danger" onclick="deleteSingleCharacter()">🗑️ 削除</button>
+            <button class="primary" onclick="saveCharacterEdit()" style="margin-top:0;">💾 変更保存</button>
+        </div>
+        <button class="btn-shot" onclick="takeScreenshot('detail-area')">この画面をスクショ</button>
+    </div>
+</div>
+
+<script>
+    let characters = JSON.parse(localStorage.getItem('oshi_birthday_data_v3')) || [];
+    let selectedCharId = null;
+    let currentTabId = 'tab-circle';
+
+    const timeline = document.getElementById('timeline');
+    const formContainer = document.getElementById('dynamic-form-container');
+    const modalMonthSelect = document.getElementById('modal-edit-month');
+    
+    let monthOptions = '';
+    for(let m=1; m<=12; m++) { monthOptions += `<option value="${m}">${m}月</option>`; }
+    modalMonthSelect.innerHTML = monthOptions;
+
+    function updateModalDayOptions() {
+        const modalDaySelect = document.getElementById('modal-edit-day');
+        let dayOptions = '';
+        for(let d=1; d<=31; d++) { dayOptions += `<option value="${d}">${String(d).padStart(2,'0')}日</option>`; }
+        modalDaySelect.innerHTML = dayOptions;
+    }
+    updateModalDayOptions();
+
+    // タブ切り替えロジック
+    function switchTab(tabId) {
+        currentTabId = tabId;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        
+        const btnIndex = tabId === 'tab-circle' ? 0 : (tabId === 'tab-graph' ? 1 : 2);
+        document.querySelectorAll('.tab-btn')[btnIndex].classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+
+        const activeChip = document.querySelector('.tag-chip.active');
+        const filterTag = activeChip ? activeChip.getAttribute('data-tag') : 'all';
+        refreshOutputs(filterTag);
+    }
+
+    function captureCurrentTab() {
+        if (currentTabId === 'tab-circle') takeScreenshot('capture-circle');
+        else if (currentTabId === 'tab-graph') takeScreenshot('capture-graph');
+        else if (currentTabId === 'tab-list') takeScreenshot('capture-list');
+    }
+
+    // 円形盤面の目盛りと文字
+    function createMonthGuides() {
+        document.querySelectorAll('.month-line, .month-label').forEach(el => el.remove());
+
+        // 【再修正】円形タイムライン本体が「親要素の50%位置（中央）」を基準に配置されるように調整するための親の絶対座標計算用ベース
+        const container = document.getElementById('circle-layout-container');
+
+        for (let m = 1; m <= 12; m++) {
+            let lineAngle = (m === 12) ? 0 : m * 30;
+            const line = document.createElement('div');
+            line.className = 'month-line';
+            line.style.transform = `translateX(-50%) rotate(${lineAngle}deg)`;
+            timeline.appendChild(line);
+
+            // 月テキストラベルの配置
+            let baseAngle = 0;
+            if (m === 12) baseAngle = -90;
+            else baseAngle = -90 + (m * 30);
+            
+            const labelAngle = baseAngle + 15;
+            
+            // 【再修正】本体が幅80%に小さくなったため、全体の中心（50%, 50%）を基準にして、
+            // 文字の位置を「40%（本体のフチ）＋少し外側の余白（12%）」＝ 52% の位置に固定マッピング。
+            // これにより画面が狭くなっても絶対にカードの外枠へはみ出さなくなります！
+            const radius = 52; 
+            const x = 50 + radius * Math.cos(labelAngle * Math.PI / 180);
+            const y = 50 + radius * Math.sin(labelAngle * Math.PI / 180);
+
+            const label = document.createElement('div');
+            label.className = 'month-label';
+            label.style.left = `${x}%`;
+            label.style.top = `${y}%`;
+            label.textContent = `${m}月`;
+            
+            container.appendChild(label);
+        }
+    }
+
+    function refreshOutputs(filterTag = 'all') {
+        const filteredChars = characters.filter(char => filterTag === 'all' || char.tag === filterTag);
+        
+        if (currentTabId === 'tab-circle') {
+            createMonthGuides();
+            document.querySelectorAll('.char-click-zone').forEach(el => el.remove());
+
+            const dateCounter = {};
+            function getDaysSinceDec1(month, day) {
+                const monthOffsets = { 12: 0, 1: 31, 2: 62, 3: 91, 4: 122, 5: 152, 6: 183, 7: 214, 8: 244, 9: 275, 10: 305, 11: 336 };
+                return monthOffsets[month] + (day - 1);
+            }
+
+            filteredChars.forEach(char => {
+                const daysPassed = getDaysSinceDec1(char.month, char.day);
+                const baseAngle = (daysPassed / 365) * 360; 
+
+                const dateKey = `${char.month}-${char.day}`;
+                if (!dateCounter[dateKey]) dateCounter[dateKey] = 0;
+                const overlapCount = dateCounter[dateKey];
+                
+                // 【再修正】本体サイズ縮小に連動させて、アイコンプロットの半径位置を調整（0.8倍にスケールダウン）
+                const radius = (32 + (overlapCount * 7)) * 0.8; 
+                const finalAngle = baseAngle + (overlapCount * 12);
+                dateCounter[dateKey]++;
+
+                const radian = (finalAngle - 90) * Math.PI / 180;
+                const x = 50 + radius * Math.cos(radian);
+                const y = 50 + radius * Math.sin(radian);
+
+                const zone = document.createElement('div');
+                zone.className = 'char-click-zone';
+                zone.style.left = `${x}%`;
+                zone.style.top = `${y}%`;
+                zone.onclick = () => openModal(char);
+
+                const tooltip = document.createElement('div');
+                tooltip.className = 'char-tooltip';
+                tooltip.textContent = `${char.name} (${char.month}/${char.day})`;
+                zone.appendChild(tooltip);
+
+                const dot = document.createElement('div');
+                dot.className = 'char-dot';
+                if (char.image) dot.style.backgroundImage = `url(${char.image})`;
+                else dot.textContent = char.name.substring(0, 1);
+
+                zone.appendChild(dot);
+                timeline.appendChild(zone);
+            });
+        }
+
+        if (currentTabId === 'tab-graph') {
+            const graphContainer = document.getElementById('graph-container');
+            graphContainer.innerHTML = '';
+            
+            const monthCounts = Array(12).fill(0);
+            filteredChars.forEach(c => { monthCounts[c.month - 1]++; });
+            const maxCount = Math.max(...monthCounts, 1);
+
+            const seasonColors = {
+                12: '#B7E2F3', 1: '#B7E2F3', 2: '#B7E2F3',
+                3: '#FFC6D3', 4: '#FFC6D3', 5: '#FFC6D3',
+                6: '#B6E9B6', 7: '#B6E9B6', 8: '#B6E9B6',
+                9: '#FFCD9B', 10: '#FFCD9B', 11: '#FFCD9B'
+            };
+
+            const monthOrder = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+            monthOrder.forEach(m => {
+                const count = monthCounts[m - 1];
+                const pct = (count / maxCount) * 100;
+                const color = seasonColors[m];
+
+                const row = document.createElement('div');
+                row.className = 'chart-row';
+                row.innerHTML = `
+                    <div class="chart-label">${m}月</div>
+                    <div class="chart-bar-wrapper">
+                        <div class="chart-bar" style="width: ${pct}%; background-color: ${color};"></div>
+                    </div>
+                    <div class="chart-count">${count}人</div>
+                `;
+                graphContainer.appendChild(row);
+            });
+        }
+
+        if (currentTabId === 'tab-list') {
+            const tbody = document.getElementById('list-table-body');
+            tbody.innerHTML = '';
+            
+            const sorted = [...filteredChars].sort((a, b) => {
+                const order = {12:1, 1:2, 2:3, 3:4, 4:5, 5:6, 6:7, 7:8, 8:9, 9:10, 10:11, 11:12};
+                if(order[a.month] !== order[b.month]) return order[a.month] - order[b.month];
+                return a.day - b.day;
+            });
+
+            if(sorted.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#a6a2a7; padding:20px;">登録メンバーがいません</td></tr>`;
+                return;
+            }
+
+            sorted.forEach(c => {
+                const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.onclick = () => openModal(c);
+                
+                const avatarStyle = c.image ? `background-image:url(${c.image})` : '';
+                const initial = c.image ? '' : c.name.substring(0,1);
+
+                tr.innerHTML = `
+                    <td>
+                        <div class="list-avatar" style="${avatarStyle}">${initial}</div>
+                        <strong>${c.name}</strong>
+                    </td>
+                    <td>${c.month}月${c.day}日</td>
+                    <td><span class="tag-chip" style="pointer-events:none; font-size:0.75rem; padding:3px 8px;">${c.tag}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    }
+
+    let blockCounter = 0;
+    function addFormBlock() {
+        blockCounter++;
+        const blockId = `block-${blockCounter}`;
+        const block = document.createElement('div');
+        block.className = 'char-input-block';
+        block.id = blockId;
+
+        let dayOptions = '';
+        for(let i=1; i<=31; i++) { dayOptions += `<option value="${i}" ${i===1?'selected':''}>${String(i).padStart(2,'0')}日</option>`; }
+
+        block.innerHTML = `
+            <button class="remove-btn" onclick="removeFormBlock('${blockId}')">×</button>
+            <input type="text" class="input-name" placeholder="名前を入力">
+            <div class="row">
+                <select class="input-month">
+                    <option value="12">12月</option><option value="1">01月</option><option value="2">02月</option>
+                    <option value="3" selected>03月</option><option value="4">04月</option><option value="5">05月</option>
+                    <option value="6">06月</option><option value="7">07月</option><option value="8">08月</option>
+                    <option value="9">09月</option><option value="10">10月</option><option value="11">11月</option>
+                </select>
+                <select class="input-day">${dayOptions}</select>
+            </div>
+            <input type="text" class="input-tag" placeholder="タグ（作品名など）">
+            <div class="details-toggle" onclick="toggleBlockAdvanced('${blockId}')">▼ 詳細項目（誕生石など）</div>
+            <div class="advanced-inputs" id="${blockId}-adv">
+                <input type="text" class="input-stone" placeholder="誕生石">
+                <input type="text" class="input-color-name" placeholder="誕生色">
+                <div class="row" style="align-items: center; margin-bottom:0;"><span style="font-size:0.85rem;">背景色：</span><input type="color" class="input-color-hex" value="#ffffff" style="padding:0; height:40px; cursor:pointer;"></div>
+                <input type="text" class="input-flower" placeholder="誕生花">
+                <input type="text" class="input-dayinfo" placeholder="何の日？">
+            </div>
+        `;
+        formContainer.appendChild(block);
+    }
+
+    function removeFormBlock(id) { const block = document.getElementById(id); if (block) block.remove(); }
+    function toggleBlockAdvanced(blockId) { document.getElementById(`${blockId}-adv`).classList.toggle('open'); }
+    function saveToStorage() { localStorage.setItem('oshi_birthday_data_v3', JSON.stringify(characters)); }
+
+    function triggerManualSave() {
+        saveToStorage();
+        const msg = document.getElementById('save-status-msg');
+        msg.classList.add('show');
+        setTimeout(() => { msg.classList.remove('show'); }, 2500);
+    }
+
+    function updateTagFilters() {
+        const container = document.getElementById('filter-tags');
+        const activeChip = container.querySelector('.tag-chip.active');
+        const currentActiveTag = activeChip ? activeChip.getAttribute('data-tag') : 'all';
+
+        const tags = ['all', ...new Set(characters.map(c => c.tag).filter(t => t))];
+        container.innerHTML = '';
+        
+        tags.forEach(tag => {
+            const chip = document.createElement('div');
+            chip.className = 'tag-chip' + (tag === currentActiveTag ? ' active' : '');
+            chip.setAttribute('data-tag', tag);
+            chip.textContent = tag === 'all' ? 'すべて' : tag;
+            chip.onclick = () => {
+                document.querySelectorAll('.tag-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                refreshOutputs(tag);
+            };
+            container.appendChild(chip);
+        });
+        
+        refreshOutputs(currentActiveTag);
+    }
+
+    function submitAllCharacters() {
+        const blocks = document.querySelectorAll('.char-input-block');
+        if (blocks.length === 0) return alert("入力欄を作ってください");
+
+        let addedCount = 0;
+        blocks.forEach((block, index) => {
+            const name = block.querySelector('.input-name').value.trim();
+            const month = parseInt(block.querySelector('.input-month').value);
+            const day = parseInt(block.querySelector('.input-day').value);
+            const tag = block.querySelector('.input-tag').value.trim() || "未分類";
+            const stone = block.querySelector('.input-stone').value.trim() || "--";
+            const colorName = block.querySelector('.input-color-name').value.trim() || "--";
+            const colorHex = block.querySelector('.input-color-hex').value;
+            const flower = block.querySelector('.input-flower').value.trim() || "--";
+            const dayinfo = block.querySelector('.input-dayinfo').value.trim() || "--";
+
+            if (name) {
+                characters.push({
+                    id: Date.now() + "_" + index + "_" + Math.random().toString(36).substr(2, 9),
+                    name, month, day, tag, image: null, stone, colorName, colorHex, flower, dayinfo
+                });
+                addedCount++;
+            }
+        });
+
+        if(addedCount === 0) return alert("名前を入力してください");
+        formContainer.innerHTML = '';
+        addFormBlock();
+        saveToStorage();
+        updateTagFilters();
+    }
+
+    function openModal(char) {
+        selectedCharId = char.id;
+        const modal = document.getElementById('detail-modal');
+        const content = document.getElementById('detail-area');
+        content.style.backgroundColor = char.colorHex ? char.colorHex : "#ffffff";
+        
+        document.getElementById('modal-edit-name').value = char.name;
+        document.getElementById('modal-edit-month').value = char.month;
+        updateModalDayOptions();
+        document.getElementById('modal-edit-day').value = char.day;
+        document.getElementById('modal-edit-tag').value = char.tag || "未分類";
+        document.getElementById('modal-edit-stone').value = char.stone === '--' ? '' : char.stone;
+        document.getElementById('modal-edit-color-name').value = char.colorName === '--' ? '' : char.colorName;
+        document.getElementById('modal-edit-color-hex').value = char.colorHex ? char.colorHex : "#ffffff";
+        document.getElementById('modal-edit-flower').value = char.flower === '--' ? '' : char.flower;
+        document.getElementById('modal-edit-dayinfo').value = char.dayinfo === '--' ? '' : char.dayinfo;
+
+        const img = document.getElementById('char-image');
+        const ph = document.getElementById('upload-placeholder');
+        if (char.image) { img.src = char.image; img.style.display = 'block'; ph.style.display = 'none'; }
+        else { img.src = ''; img.style.display = 'none'; ph.style.display = 'block'; }
+        modal.style.display = 'flex';
+    }
+
+    function saveCharacterEdit() {
+        const char = characters.find(c => c.id === selectedCharId);
+        if (!char) return;
+        const newName = document.getElementById('modal-edit-name').value.trim();
+        if (!newName) return alert("名前を入力してください");
+
+        char.name = newName;
+        char.month = parseInt(document.getElementById('modal-edit-month').value);
+        char.day = parseInt(document.getElementById('modal-edit-day').value);
+        char.tag = document.getElementById('modal-edit-tag').value.trim() || "未分類";
+        char.stone = document.getElementById('modal-edit-stone').value.trim() || "--";
+        char.colorName = document.getElementById('modal-edit-color-name').value.trim() || "--";
+        char.colorHex = document.getElementById('modal-edit-color-hex').value;
+        char.flower = document.getElementById('modal-edit-flower').value.trim() || "--";
+        char.dayinfo = document.getElementById('modal-edit-dayinfo').value.trim() || "--";
+
+        saveToStorage();
+        updateTagFilters();
+        closeModal();
+    }
+
+    function deleteSingleCharacter() {
+        const char = characters.find(c => c.id === selectedCharId);
+        if (char && confirm(`削除しますか？`)) {
+            characters = characters.filter(c => c.id !== selectedCharId);
+            saveToStorage(); updateTagFilters(); closeModal();
+        }
+    }
+    function closeModal() { document.getElementById('detail-modal').style.display = 'none'; }
+    function triggerImageUpload() { document.getElementById('file-input').click(); }
+
+    function handleImage(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const char = characters.find(c => c.id === selectedCharId);
+            if (char) {
+                char.image = e.target.result;
+                document.getElementById('char-image').src = char.image;
+                document.getElementById('char-image').style.display = 'block';
+                document.getElementById('upload-placeholder').style.display = 'none';
+                saveToStorage();
+                const activeChip = document.querySelector('.tag-chip.active');
+                refreshOutputs(activeChip ? activeChip.getAttribute('data-tag') : 'all');
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function clearAllData() {
+        if (confirm("すべてのキャラクターデータを削除しますか？")) {
+            characters = []; saveToStorage(); updateTagFilters();
+        }
+    }
+
+    function takeScreenshot(elementId) {
+        const element = document.getElementById(elementId);
+        html2canvas(element, { useCORS: true, backgroundColor: "#ffffff", scale: 2 }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `${elementId}_screenshot.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+    }
+
+    addFormBlock();
+    updateTagFilters();
+</script>
+</body>
+</html>
