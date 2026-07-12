@@ -205,6 +205,7 @@
             <button class="tab-btn active" onclick="switchTab('tab-circle')">⭕ 早見表</button>
             <button class="tab-btn" onclick="switchTab('tab-graph')">📊 月別グラフ</button>
             <button class="tab-btn" onclick="switchTab('tab-list')">📋 一覧表</button>
+            <button class="tab-btn" onclick="switchTab('tab-zodiac')">🌌 星座別</button>
         </div>
 
         <!-- タブ1: 円形タイムライン -->
@@ -238,11 +239,20 @@
                         <tr>
                             <th>名前</th>
                             <th>誕生日</th>
+                            <th>星座</th>
                             <th>タグ</th>
                         </tr>
                     </thead>
                     <tbody id="list-table-body"></tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- タブ4: 星座一覧 -->
+        <div id="tab-zodiac" class="tab-content">
+            <div class="view-capture-area" id="capture-zodiac" style="padding: 16px 10px;">
+                <h3 style="font-size:1rem; margin-bottom:12px; text-align:left;">🌌 星座別メンバー</h3>
+                <div id="zodiac-container" style="display:flex; flex-direction:column; gap:16px;"></div>
             </div>
         </div>
     </div>
@@ -265,10 +275,11 @@
             <button class="close-btn" onclick="closeModal()">×</button>
         </div>
         
-        <div class="row" style="margin-bottom: 0; gap: 8px;">
+        <div class="row" style="margin-bottom: 0; gap: 8px; align-items:center;">
             <input type="text" id="modal-edit-name" placeholder="名前" style="flex: 2;">
             <select id="modal-edit-month" style="flex: 1;" onchange="updateModalDayOptions()"></select>
-            <select id="modal-edit-day" style="flex: 1;"></select>
+            <select id="modal-edit-day" style="flex: 1;" onchange="updateModalZodiac()"></select>
+            <span id="modal-edit-zodiac-label" style="font-size:0.85rem; color:var(--accent-color); font-weight:bold; min-width:60px; text-align:center;"></span>
         </div>
         <input type="text" id="modal-edit-tag" placeholder="タグ" style="margin-bottom: 0;">
         
@@ -309,6 +320,28 @@
     for(let m=1; m<=12; m++) { monthOptions += `<option value="${m}">${m}月</option>`; }
     modalMonthSelect.innerHTML = monthOptions;
 
+    function getZodiacSign(month, day) {
+        if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) return "やぎ座";
+        if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) return "みずがめ座";
+        if ((month === 2 && day >= 19) || (month === 3 && day <= 20)) return "うお座";
+        if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return "おひつじ座";
+        if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) return "おうし座";
+        if ((month === 5 && day >= 21) || (month === 6 && day <= 21)) return "ふたご座";
+        if ((month === 6 && day >= 22) || (month === 7 && day <= 22)) return "かに座";
+        if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) return "しし座";
+        if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) return "おとめ座";
+        if ((month === 9 && day >= 23) || (month === 10 && day <= 23)) return "てんびん座";
+        if ((month === 10 && day >= 24) || (month === 11 && day <= 22)) return "さそり座";
+        if ((month === 11 && day >= 23) || (month === 12 && day <= 21)) return "いて座";
+        return "";
+    }
+
+    function updateModalZodiac() {
+        const month = parseInt(document.getElementById('modal-edit-month').value) || 1;
+        const day = parseInt(document.getElementById('modal-edit-day').value) || 1;
+        document.getElementById('modal-edit-zodiac-label').textContent = getZodiacSign(month, day);
+    }
+
     function getDaysInMonth(month) {
         if (month === 2) return 29;
         if ([4, 6, 9, 11].includes(month)) return 30;
@@ -328,8 +361,17 @@
             dayOptions += `<option value="${d}" ${selected}>${String(d).padStart(2,'0')}日</option>`; 
         }
         modalDaySelect.innerHTML = dayOptions;
+        updateModalZodiac();
     }
     updateModalDayOptions();
+
+    function updateFormZodiac(element) {
+        const row = element.closest('.row');
+        const month = parseInt(row.querySelector('.input-month').value) || 1;
+        const day = parseInt(row.querySelector('.input-day').value) || 1;
+        const label = row.querySelector('.zodiac-label');
+        if (label) label.textContent = getZodiacSign(month, day);
+    }
 
     function updateFormDays(monthSelect) {
         const month = parseInt(monthSelect.value);
@@ -343,6 +385,7 @@
             dayOptions += `<option value="${i}" ${selected}>${String(i).padStart(2,'0')}日</option>`; 
         }
         daySelect.innerHTML = dayOptions;
+        updateFormZodiac(monthSelect);
     }
 
     // タブ切り替えロジック
@@ -351,7 +394,7 @@
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
         
-        const btnIndex = tabId === 'tab-circle' ? 0 : (tabId === 'tab-graph' ? 1 : 2);
+        const btnIndex = tabId === 'tab-circle' ? 0 : (tabId === 'tab-graph' ? 1 : (tabId === 'tab-list' ? 2 : 3));
         document.querySelectorAll('.tab-btn')[btnIndex].classList.add('active');
         document.getElementById(tabId).classList.add('active');
 
@@ -364,6 +407,7 @@
         if (currentTabId === 'tab-circle') takeScreenshot('capture-circle');
         else if (currentTabId === 'tab-graph') takeScreenshot('capture-graph');
         else if (currentTabId === 'tab-list') takeScreenshot('capture-list');
+        else if (currentTabId === 'tab-zodiac') takeScreenshot('capture-zodiac');
     }
 
     // 円形盤面の目盛りと文字
@@ -440,9 +484,10 @@
                 zone.style.top = `${y}%`;
                 zone.onclick = () => openModal(char);
 
+                const zodiac = getZodiacSign(char.month, char.day);
                 const tooltip = document.createElement('div');
                 tooltip.className = 'char-tooltip';
-                tooltip.textContent = `${char.name} (${char.month}/${char.day})`;
+                tooltip.textContent = `${char.name} (${char.month}/${char.day} ${zodiac})`;
                 zone.appendChild(tooltip);
 
                 const dot = document.createElement('div');
@@ -500,7 +545,7 @@
             });
 
             if(sorted.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#a6a2a7; padding:20px;">登録メンバーがいません</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#a6a2a7; padding:20px;">登録メンバーがいません</td></tr>`;
                 return;
             }
 
@@ -511,6 +556,7 @@
                 
                 const avatarStyle = c.image ? `background-image:url(${c.image})` : '';
                 const initial = c.image ? '' : c.name.substring(0,1);
+                const zodiac = getZodiacSign(c.month, c.day);
 
                 tr.innerHTML = `
                     <td>
@@ -518,9 +564,81 @@
                         <strong>${c.name}</strong>
                     </td>
                     <td>${c.month}月${c.day}日</td>
+                    <td><span style="font-size:0.75rem; color:#a6a2a7;">${zodiac}</span></td>
                     <td><span class="tag-chip" style="pointer-events:none; font-size:0.75rem; padding:3px 8px;">${c.tag}</span></td>
                 `;
                 tbody.appendChild(tr);
+            });
+        }
+
+        if (currentTabId === 'tab-zodiac') {
+            const container = document.getElementById('zodiac-container');
+            container.innerHTML = '';
+
+            const zodiacOrder = [
+                "おひつじ座", "おうし座", "ふたご座", "かに座", "しし座", "おとめ座", 
+                "てんびん座", "さそり座", "いて座", "やぎ座", "みずがめ座", "うお座"
+            ];
+            
+            const grouped = {};
+            zodiacOrder.forEach(z => grouped[z] = []);
+            filteredChars.forEach(c => {
+                const z = getZodiacSign(c.month, c.day);
+                if (grouped[z]) grouped[z].push(c);
+            });
+
+            zodiacOrder.forEach(z => {
+                const chars = grouped[z];
+                chars.sort((a,b) => (a.month*100+a.day) - (b.month*100+b.day));
+
+                const groupDiv = document.createElement('div');
+                groupDiv.style.background = '#f9f6fa';
+                groupDiv.style.borderRadius = '12px';
+                groupDiv.style.padding = '12px';
+                groupDiv.style.textAlign = 'left';
+
+                const header = document.createElement('div');
+                header.style.fontWeight = 'bold';
+                header.style.marginBottom = '8px';
+                header.style.color = 'var(--accent-color)';
+                header.style.borderBottom = '1px solid #E2D9E2';
+                header.style.paddingBottom = '6px';
+                header.textContent = `${z} (${chars.length}人)`;
+                groupDiv.appendChild(header);
+
+                if (chars.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.style.fontSize = '0.8rem';
+                    empty.style.color = '#a6a2a7';
+                    empty.textContent = '登録なし';
+                    groupDiv.appendChild(empty);
+                } else {
+                    const list = document.createElement('div');
+                    list.style.display = 'flex';
+                    list.style.flexWrap = 'wrap';
+                    list.style.gap = '8px';
+                    chars.forEach(c => {
+                        const charChip = document.createElement('div');
+                        charChip.style.background = 'white';
+                        charChip.style.border = '1px solid #E2D9E2';
+                        charChip.style.padding = '4px 8px';
+                        charChip.style.borderRadius = '8px';
+                        charChip.style.fontSize = '0.8rem';
+                        charChip.style.display = 'flex';
+                        charChip.style.alignItems = 'center';
+                        charChip.style.gap = '6px';
+                        charChip.style.cursor = 'pointer';
+                        charChip.onclick = () => openModal(c);
+
+                        const avatarStyle = c.image ? `background-image:url(${c.image})` : '';
+                        const initial = c.image ? '' : c.name.substring(0,1);
+                        charChip.innerHTML = `<div class="list-avatar" style="width:20px;height:20px;margin-right:0;font-size:0.6rem;${avatarStyle}">${initial}</div>
+                                              <span>${c.name} (${c.month}/${c.day})</span>`;
+                        list.appendChild(charChip);
+                    });
+                    groupDiv.appendChild(list);
+                }
+                container.appendChild(groupDiv);
             });
         }
     }
@@ -539,14 +657,15 @@
         block.innerHTML = `
             <button class="remove-btn" onclick="removeFormBlock('${blockId}')">×</button>
             <input type="text" class="input-name" placeholder="名前を入力">
-            <div class="row">
+            <div class="row" style="align-items: center;">
                 <select class="input-month" onchange="updateFormDays(this)">
                     <option value="12">12月</option><option value="1">01月</option><option value="2">02月</option>
                     <option value="3" selected>03月</option><option value="4">04月</option><option value="5">05月</option>
                     <option value="6">06月</option><option value="7">07月</option><option value="8">08月</option>
                     <option value="9">09月</option><option value="10">10月</option><option value="11">11月</option>
                 </select>
-                <select class="input-day">${dayOptions}</select>
+                <select class="input-day" onchange="updateFormZodiac(this)">${dayOptions}</select>
+                <span class="zodiac-label" style="font-size:0.9rem; color:var(--accent-color); font-weight:bold; min-width:80px; text-align:center;">おひつじ座</span>
             </div>
             <input type="text" class="input-tag" placeholder="タグ（作品名など）">
             <div class="details-toggle" onclick="toggleBlockAdvanced('${blockId}')">▼ 詳細項目（誕生石など）</div>
@@ -644,6 +763,7 @@
         document.getElementById('modal-edit-color-hex').value = char.colorHex ? char.colorHex : "#ffffff";
         document.getElementById('modal-edit-flower').value = char.flower === '--' ? '' : char.flower;
         document.getElementById('modal-edit-dayinfo').value = char.dayinfo === '--' ? '' : char.dayinfo;
+        updateModalZodiac();
 
         const img = document.getElementById('char-image');
         const ph = document.getElementById('upload-placeholder');
