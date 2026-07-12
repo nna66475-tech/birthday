@@ -76,12 +76,9 @@
         .circle-timeline {
             width: 80%; aspect-ratio: 1 / 1; border-radius: 50%;
             margin: 40px auto; /* 上下に余白を作り、左右中央に配置 */
-            background: conic-gradient(
-                #B7E2F3 0deg 90deg,    /* 冬: 12, 1, 2月 */
-                #FFC6D3 90deg 180deg,  /* 春: 3, 4, 5月 */
-                #B6E9B6 180deg 270deg, /* 夏: 6, 7, 8月 */
-                #FFCD9B 270deg 360deg  /* 秋: 9, 10, 11月 */
-            );
+            background-color: #fff;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M50,50 L50,0 A50,50 0 0,1 100,50 Z' fill='%23B7E2F3' /%3E%3Cpath d='M50,50 L100,50 A50,50 0 0,1 50,100 Z' fill='%23FFC6D3' /%3E%3Cpath d='M50,50 L50,100 A50,50 0 0,1 0,50 Z' fill='%23B6E9B6' /%3E%3Cpath d='M50,50 L0,50 A50,50 0 0,1 50,0 Z' fill='%23FFCD9B' /%3E%3C/svg%3E");
+            background-size: cover;
             position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
         }
 
@@ -312,13 +309,41 @@
     for(let m=1; m<=12; m++) { monthOptions += `<option value="${m}">${m}月</option>`; }
     modalMonthSelect.innerHTML = monthOptions;
 
+    function getDaysInMonth(month) {
+        if (month === 2) return 29;
+        if ([4, 6, 9, 11].includes(month)) return 30;
+        return 31;
+    }
+
     function updateModalDayOptions() {
+        const modalMonthSelect = document.getElementById('modal-edit-month');
+        const month = parseInt(modalMonthSelect.value) || 1;
         const modalDaySelect = document.getElementById('modal-edit-day');
+        const currentDay = parseInt(modalDaySelect.value) || 1;
+        
+        let maxDays = getDaysInMonth(month);
         let dayOptions = '';
-        for(let d=1; d<=31; d++) { dayOptions += `<option value="${d}">${String(d).padStart(2,'0')}日</option>`; }
+        for(let d=1; d<=maxDays; d++) { 
+            const selected = (d === currentDay) ? 'selected' : '';
+            dayOptions += `<option value="${d}" ${selected}>${String(d).padStart(2,'0')}日</option>`; 
+        }
         modalDaySelect.innerHTML = dayOptions;
     }
     updateModalDayOptions();
+
+    function updateFormDays(monthSelect) {
+        const month = parseInt(monthSelect.value);
+        const daySelect = monthSelect.parentElement.querySelector('.input-day');
+        const currentDay = parseInt(daySelect.value) || 1;
+        
+        let maxDays = getDaysInMonth(month);
+        let dayOptions = '';
+        for(let i=1; i<=maxDays; i++) { 
+            const selected = (i === currentDay) ? 'selected' : '';
+            dayOptions += `<option value="${i}" ${selected}>${String(i).padStart(2,'0')}日</option>`; 
+        }
+        daySelect.innerHTML = dayOptions;
+    }
 
     // タブ切り替えロジック
     function switchTab(tabId) {
@@ -515,7 +540,7 @@
             <button class="remove-btn" onclick="removeFormBlock('${blockId}')">×</button>
             <input type="text" class="input-name" placeholder="名前を入力">
             <div class="row">
-                <select class="input-month">
+                <select class="input-month" onchange="updateFormDays(this)">
                     <option value="12">12月</option><option value="1">01月</option><option value="2">02月</option>
                     <option value="3" selected>03月</option><option value="4">04月</option><option value="5">05月</option>
                     <option value="6">06月</option><option value="7">07月</option><option value="8">08月</option>
